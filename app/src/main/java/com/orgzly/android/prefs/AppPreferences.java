@@ -5,7 +5,7 @@ import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Environment;
+import android.util.Log;
 
 import androidx.annotation.StringRes;
 
@@ -14,6 +14,7 @@ import com.google.gson.JsonElement;
 import com.orgzly.R;
 import com.orgzly.android.App;
 import com.orgzly.android.LocalStorage;
+import com.orgzly.BuildConfig;
 import com.orgzly.org.OrgStatesWorkflow;
 
 import org.eclipse.jgit.transport.URIish;
@@ -805,6 +806,9 @@ public class AppPreferences {
      * Allow inlining images
      */
     public static boolean imagesEnabled(Context context) {
+        if (!BuildConfig.IS_EXTERNAL_FILES_ACCESS_ALLOWED) {
+            return false;
+        }
         return getDefaultSharedPreferences(context).getBoolean(
                 context.getResources().getString(R.string.pref_key_images_enabled),
                 context.getResources().getBoolean(R.bool.pref_default_images_enabled));
@@ -995,6 +999,32 @@ public class AppPreferences {
                 context.getResources().getBoolean(R.bool.pref_default_widget_display_book_name));
     }
 
+    @Nullable
+    public static String widgetCaptureTemplateId(Context context) {
+        String key = context.getResources().getString(R.string.pref_key_widget_capture_template);
+        String id = getDefaultSharedPreferences(context).getString(key, null);
+        if (id == null || id.isEmpty()) {
+            return null;
+        }
+
+        for (com.orgzly.android.ui.capture.CaptureTemplate template : captureTemplates(context)) {
+            if (id.equals(template.getId())) {
+                return id;
+            }
+        }
+
+        return null;
+    }
+
+    public static void widgetCaptureTemplateId(Context context, @Nullable String value) {
+        String key = context.getResources().getString(R.string.pref_key_widget_capture_template);
+        if (value == null || value.isEmpty()) {
+            getDefaultSharedPreferences(context).edit().remove(key).apply();
+        } else {
+            getDefaultSharedPreferences(context).edit().putString(key, value).apply();
+        }
+    }
+
     /*
      * RichTextView
      */
@@ -1054,7 +1084,10 @@ public class AppPreferences {
     }
     
     public static String defaultRepositoryStorageDirectory(Context context) {
-        File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        // Use app-specific external storage to avoid EPERM from FUSE on public external storage
+        // (Android 11+ FUSE layer for public dirs doesn't support O_EXCL used by JGit)
+        File externalFilesDir = context.getExternalFilesDir(null);
+        File path = externalFilesDir != null ? externalFilesDir : context.getFilesDir();
         return getStringFromSelector(
                 context, R.string.pref_key_git_default_repository_directory, path.toString());
     }
@@ -1258,6 +1291,20 @@ public class AppPreferences {
         getDefaultSharedPreferences(context).edit().putString(key, value).apply();
     }
 
+    public static Boolean isDefaultToAdvancedQueryEnabled(Context context) {
+        return getDefaultSharedPreferences(context).getBoolean(
+            context.getResources().getString(R.string.pref_key_default_advanced_search),
+            context.getResources().getBoolean(R.bool.pref_default_default_advanced_search)
+        );
+    }
+
+    public static void setDefaultToAdvancedQueryEnabled(Context context, boolean value) {
+        getDefaultSharedPreferences(context).edit().putBoolean(
+                context.getResources().getString(R.string.pref_key_default_advanced_search),
+                value
+        ).apply();
+    }
+
     /*
      * Where to put incoming shared text in new note
      */
@@ -1278,6 +1325,17 @@ public class AppPreferences {
         return getDefaultSharedPreferences(context).getBoolean(
                 context.getResources().getString(R.string.pref_key_create_org_links_from_shared_links),
                 context.getResources().getBoolean(R.bool.pref_default_create_org_links_from_shared_links));
+    }
+
+    public static void showSearchAction(Context context, Boolean value) {
+        String key = context.getResources().getString(R.string.pref_key_show_search_action_books);
+        getDefaultSharedPreferences(context).edit().putBoolean(key, value).apply();
+    }
+
+    public static Boolean showSearchAction(Context context) {
+        return getDefaultSharedPreferences(context).getBoolean(
+                context.getResources().getString(R.string.pref_key_show_search_action_books),
+                context.getResources().getBoolean(R.bool.pref_default_show_search_action_books));
     }
 
     // Added for test purposes
@@ -1363,5 +1421,24 @@ public class AppPreferences {
      */
     private static String repoPropsMapKeyPrefix(long id) {
         return "id-" + id + "-";
+    }
+
+    /* Capture templates - stored as JSON array */
+    public static List<com.orgzly.android.ui.capture.CaptureTemplate> captureTemplates(Context context) {
+        String json = getDefaultSharedPreferences(context).getString(context.getResources().getString(R.string.pref_key_capture_templates), "[]");
+        com.google.gson.reflect.TypeToken<List<com.orgzly.android.ui.capture.CaptureTemplate>> typeToken =
+            new com.google.gson.reflect.TypeToken<List<com.orgzly.android.ui.capture.CaptureTemplate>>(){};
+        try {
+            List<com.orgzly.android.ui.capture.CaptureTemplate> result = new Gson().fromJson(json, typeToken.getType());
+            return result != null ? result : new ArrayList<>();
+        } catch (Exception e) {
+            Log.e("AppPreferences", "Failed to parse capture templates JSON", e);
+            return new ArrayList<>();
+        }
+    }
+
+    public static void setCaptureTemplates(Context context, List<com.orgzly.android.ui.capture.CaptureTemplate> templates) {
+        String json = new Gson().toJson(templates);
+        getDefaultSharedPreferences(context).edit().putString(context.getResources().getString(R.string.pref_key_capture_templates), json).apply();
     }
 }

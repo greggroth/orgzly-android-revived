@@ -4,15 +4,44 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.lifecycle.ViewModelProvider
+import cl.emilym.compose.units.rdp
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.orgzly.R
-import com.orgzly.android.NotesOrgExporter
+import com.orgzly.android.prefs.AppPreferences
 import com.orgzly.android.sync.SyncRunner
+import com.orgzly.android.ui.capture.CaptureTemplate
+import com.orgzly.android.ui.capture.CaptureTemplateResolver
+import com.orgzly.android.ui.capture.getDisplayName
+import com.orgzly.android.ui.compose.base.bootstrapContent
+import com.orgzly.android.ui.compose.widgets.Icons
+import com.orgzly.android.ui.compose.widgets.OrgzlySearchTextField
+import com.orgzly.android.ui.compose.widgets.painterIcon
 import com.orgzly.android.ui.dialogs.TimestampDialogFragment
 import com.orgzly.android.ui.drawer.DrawerItem
 import com.orgzly.android.ui.main.SharedMainActivityViewModel
 import com.orgzly.android.ui.notes.NotesFragment
 import com.orgzly.android.ui.settings.SettingsActivity
+import javax.inject.Inject
 
 /**
  * Displays query results.
@@ -32,7 +61,10 @@ abstract class QueryFragment :
 
     protected lateinit var sharedMainActivityViewModel: SharedMainActivityViewModel
 
-    protected lateinit var viewModel: QueryViewModel
+    @Inject
+    lateinit var viewModelFactory: QueryViewModelFactory
+
+    protected abstract val viewModel: QueryViewModel
 
     override fun getCurrentListener(): Listener? {
         return listener
@@ -106,8 +138,16 @@ abstract class QueryFragment :
             R.id.focus ->
                 listener?.onNoteFocusInBookRequest(ids.first())
 
-            R.id.share -> {
-                shareNotes(ids)
+            R.id.share_note -> {
+                shareNoteParts(ids, SharePart.NOTE)
+            }
+
+            R.id.share_title -> {
+                shareNoteParts(ids, SharePart.TITLE)
+            }
+
+            R.id.share_content -> {
+                shareNoteParts(ids, SharePart.CONTENT)
             }
 
             R.id.sync -> {
@@ -120,38 +160,59 @@ abstract class QueryFragment :
         }
     }
 
-    private fun shareNotes(ids: Set<Long>) {
-        try {
-            val exporter = NotesOrgExporter(dataRepository)
-            val exportedNotes = mutableListOf<String>()
-
-            for (noteId in ids) {
-                try {
-                    exportedNotes.add(exporter.exportNote(noteId))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to export note $noteId", e)
+    protected fun setupCaptureFab(captureFab: FloatingActionButton) {
+        val templates = AppPreferences.captureTemplates(requireContext())
+        if (templates.isNotEmpty()) {
+            captureFab.setOnClickListener {
+                if (templates.size == 1) {
+                    applyTemplate(templates[0])
+                } else {
+                    showCaptureTemplateChooser(templates)
                 }
             }
-
-            val content = exportedNotes.joinToString("")
-
-            if (content.isNotEmpty()) {
-                val shareIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, content)
-                }
-                startActivity(Intent.createChooser(shareIntent, getString(R.string.share)))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to share notes", e)
+            captureFab.show()
+        } else {
+            captureFab.hide()
         }
+    }
+
+    protected fun hideCaptureFab(captureFab: FloatingActionButton) {
+        captureFab.hide()
+    }
+
+    private fun showCaptureTemplateChooser(templates: List<CaptureTemplate>) {
+        val items = templates.map {
+            it.getDisplayName(getString(R.string.capture_template))
+        }.toTypedArray()
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.select_capture_template)
+            .setItems(items) { _, index ->
+                applyTemplate(templates[index])
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun applyTemplate(template: CaptureTemplate) {
+        val result = CaptureTemplateResolver.resolve(requireContext(), dataRepository, template)
+
+        if (result.warning == "notebook_not_found") {
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.capture_template_target_book_not_found, template.targetBook),
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        listener?.onNoteNewRequestWithTemplate(result.notePlace, template)
     }
 
     companion object {
         private val TAG = QueryFragment::class.java.name
 
         const val ARG_QUERY = "query"
+        const val ARG_IS_RAW_QUERY = "is_raw_query"
         const val ARG_QUERY_NAME = "query_name"
 
         fun getDrawerItemId(query: String?): String {

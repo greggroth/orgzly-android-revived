@@ -15,6 +15,8 @@ import com.orgzly.android.sync.SyncWorker
 import com.orgzly.android.ui.BookChooserActivity
 import com.orgzly.android.ui.TemplateChooserActivity
 import com.orgzly.android.ui.books.BooksFragment
+import com.orgzly.android.ui.capture.CaptureTemplateEditFragment
+import com.orgzly.android.ui.capture.CaptureTemplateHeadlinePickerFragment
 import com.orgzly.android.ui.logs.AppLogsActivity
 import com.orgzly.android.ui.main.MainActivity
 import com.orgzly.android.ui.note.NoteFragment
@@ -44,6 +46,7 @@ import com.orgzly.android.widgets.ListWidgetProvider
 import com.orgzly.android.widgets.ListWidgetSelectionActivity
 import com.orgzly.android.widgets.ListWidgetService
 import com.orgzly.android.calendar.CalendarWorker
+import com.orgzly.android.ui.notes.query.enter.EnterSearchFragment
 import dagger.Component
 import javax.inject.Singleton
 
@@ -73,6 +76,7 @@ interface AppComponent {
     fun inject(arg: NotesFragment)
     fun inject(arg: BookFragment)
     fun inject(arg: BookPrefaceFragment)
+    fun inject(arg: EnterSearchFragment)
     fun inject(arg: SearchFragment)
     fun inject(arg: AgendaFragment)
     fun inject(arg: NoteFragment)
@@ -84,6 +88,10 @@ interface AppComponent {
     fun inject(arg: SyncFragment)
 
     fun inject(arg: SettingsFragment)
+
+    fun inject(arg: CaptureTemplateEditFragment)
+
+    fun inject(arg: CaptureTemplateHeadlinePickerFragment)
 
     fun inject(arg: CalendarWorker)
 

@@ -9,10 +9,10 @@ android {
     compileSdk 36
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 36
-        versionCode 277
-        versionName "1.19.0-beta.1"
+        versionCode 287
+        versionName "1.22.0-beta.1"
         applicationId = "com.orgzlyrevived"
         resValue "string", "application_id", "com.orgzlyrevived"
 
@@ -78,6 +78,9 @@ android {
             // Remove Git feature because of Play restrictions on external storage permissions
             buildConfigField "boolean", "IS_GIT_REMOVED", "true"
 
+            // Remove external files general access because of Play store restrictions on external storage permissions
+            buildConfigField "boolean", "IS_EXTERNAL_FILES_ACCESS_ALLOWED", "false"
+
             buildConfigField "String", "VERSION_NAME_SUFFIX", '""'
 
             dimension "store"
@@ -91,6 +94,8 @@ android {
             buildConfigField "boolean", "IS_DROPBOX_ENABLED", "false"
 
             buildConfigField "boolean", "IS_GIT_REMOVED", "false"
+
+            buildConfigField "boolean", "IS_EXTERNAL_FILES_ACCESS_ALLOWED", "true"
 
             buildConfigField "String", "VERSION_NAME_SUFFIX", '" (fdroid)"'
 
@@ -154,6 +159,10 @@ dependencies {
     implementation "androidx.activity:activity-compose:$versions.compose_activity"
     implementation 'androidx.compose.runtime:runtime-livedata'
     implementation "cl.emilym.compose:units:$versions.compose_emily_units"
+    debugImplementation "androidx.compose.ui:ui-tooling"
+    implementation "androidx.compose.ui:ui-tooling-preview"
+    debugImplementation "androidx.compose.ui:ui-test-manifest"
+    androidTestImplementation "androidx.compose.ui:ui-test-junit4"
 
     // Room
     implementation "androidx.room:room-runtime:$versions.android_room"

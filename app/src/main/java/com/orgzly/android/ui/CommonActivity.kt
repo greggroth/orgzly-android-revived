@@ -117,17 +117,15 @@ abstract class CommonActivity : AppCompatActivity() {
     private fun baseContext(newBase: Context): Context {
         var context = newBase
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            val config = Configuration(newBase.resources.configuration)
+        val config = Configuration(newBase.resources.configuration)
 
-            if (AppPreferences.ignoreSystemLocale(context)) {
-                config.setLocale(Locale.US)
-            } else {
-                config.setLocale(Locale.getDefault())
-            }
-
-            context = context.createConfigurationContext(config)
+        if (AppPreferences.ignoreSystemLocale(context)) {
+            config.setLocale(Locale.US)
+        } else {
+            config.setLocale(Locale.getDefault())
         }
+
+        context = context.createConfigurationContext(config)
 
         return context
     }
@@ -306,17 +304,28 @@ abstract class CommonActivity : AppCompatActivity() {
         if (BuildConfig.LOG_DEBUG) LogUtils.d(TAG, file)
 
         if (file.exists()) {
-            runWithPermission(
-                AppPermissions.Usage.EXTERNAL_FILES_ACCESS,
-                Runnable {
-                    try {
-                        openFile(file)
-                    } catch (e: Exception) {
-                        showSnackbar(getString(
-                            R.string.failed_to_open_linked_file_with_reason,
-                            e.localizedMessage))
-                    }
-                })
+            if (BuildConfig.IS_EXTERNAL_FILES_ACCESS_ALLOWED) {
+                runWithPermission(
+                    AppPermissions.Usage.EXTERNAL_FILES_ACCESS, Runnable {
+                        try {
+                            openFile(file)
+                        } catch (e: Exception) {
+                            showSnackbar(
+                                getString(
+                                    R.string.failed_to_open_linked_file_with_reason,
+                                    e.localizedMessage
+                                )
+                            )
+                        }
+                    })
+            } else {
+                showSnackbar(
+                    getString(
+                        R.string.failed_to_open_linked_file_with_reason,
+                        getString(R.string.external_files_access_is_no_longer_allowed)
+                    )
+                )
+            }
         } else {
             showSnackbar(getString(R.string.file_does_not_exist, file.canonicalFile))
         }

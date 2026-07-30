@@ -130,8 +130,16 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
             // Initial values when sharing
             val title = args.getString(ARG_TITLE)
             val content = args.getString(ARG_CONTENT)
+            val payload = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                args.getParcelable(ARG_PAYLOAD, NotePayload::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                args.getParcelable(ARG_PAYLOAD) as? NotePayload
+            }
 
-            return NoteInitialData(bookId, noteId, place, title, content)
+            val focusTitle = args.getBoolean(ARG_FOCUS_TITLE, false)
+
+            return NoteInitialData(bookId, noteId, place, title, content, payload, focusTitle)
         }
     }
 
@@ -371,8 +379,16 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
                 userDelete()
             }
 
-            R.id.share -> {
-                shareNote()
+            R.id.share_note -> {
+                shareNotePart(SharePart.NOTE)
+            }
+
+            R.id.share_title -> {
+                shareNotePart(SharePart.TITLE)
+            }
+
+            R.id.share_content -> {
+                shareNotePart(SharePart.CONTENT)
             }
 
             R.id.sync -> {
@@ -677,9 +693,13 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
 
             /* Open the keyboard for new notes, unless fragment was given
              * some initial values (for example from ShareActivity).
+             * Capture-template notes carry a payload but still request focus
+             * via focusTitle, so the keyboard opens with the cursor in the heading.
              */
-            if (viewModel.isNew() && !viewModel.hasInitialTitleData()) {
-                binding.title.toEditMode(0)
+            if (viewModel.isNew()
+                && (!viewModel.hasInitialTitleData() || viewModel.shouldFocusNewNoteTitle())) {
+                val titleOffset = viewModel.notePayload?.title?.length ?: 0
+                binding.title.toEditMode(titleOffset)
                 binding.topToolbar.menu.findItem(R.id.insert_inline_timestamp).isVisible = true
             }
         }
@@ -1054,19 +1074,31 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
         viewModel.requestNoteDelete()
     }
 
-    private fun shareNote() {
-        viewModel.noteId?.let { noteId ->
-            try {
-                val exporter = NotesOrgExporter(dataRepository)
-                val orgContent = exporter.exportNote(noteId)
+    private enum class SharePart { NOTE, TITLE, CONTENT }
 
-                val shareIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, orgContent)
+    private fun shareNotePart(part: SharePart) {
+        // Sync on-screen content to payload before sharing
+        updatePayloadFromViews()
+
+        viewModel.notePayload?.let { payload ->
+            try {
+                val text = when (part) {
+                    SharePart.NOTE ->
+                        NotesOrgExporter(dataRepository).exportNote(payload)
+                    SharePart.TITLE ->
+                        payload.title.takeIf { it.isNotBlank() } ?: ""
+                    SharePart.CONTENT ->
+                        payload.content?.takeIf { it.isNotBlank() } ?: ""
                 }
 
-                startActivity(Intent.createChooser(shareIntent, getString(R.string.share)))
+                if (text.isNotEmpty()) {
+                    val shareIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    }
+                    startActivity(Intent.createChooser(shareIntent, getString(R.string.share)))
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to share note", e)
                 activity?.showSnackbar(R.string.failed_sharing_note)
@@ -1191,6 +1223,8 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
         private const val ARG_PLACE = "place"
         private const val ARG_TITLE = "title"
         private const val ARG_CONTENT = "content"
+        private const val ARG_PAYLOAD = "payload"
+        private const val ARG_FOCUS_TITLE = "focus_title"
 
         @JvmStatic
         @JvmOverloads
@@ -1213,6 +1247,26 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
         }
 
         @JvmStatic
+        @JvmOverloads
+        fun forNewNote(
+            notePlace: NotePlace,
+            initialPayload: NotePayload,
+            focusTitle: Boolean = false
+        ): NoteFragment? {
+            return if (notePlace.bookId > 0) {
+                getInstance(
+                    notePlace.bookId,
+                    notePlace.noteId,
+                    notePlace.place,
+                    initialPayload = initialPayload,
+                    focusTitle = focusTitle)
+            } else {
+                Log.e(TAG, "Invalid book id ${notePlace.bookId}")
+                null
+            }
+        }
+
+        @JvmStatic
         fun forExistingNote(bookId: Long, noteId: Long): NoteFragment? {
             return if (bookId > 0 && noteId > 0) {
                 getInstance(bookId, noteId)
@@ -1228,7 +1282,9 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
             noteId: Long,
             place: Place? = null,
             initialTitle: String? = null,
-            initialContent: String? = null): NoteFragment {
+            initialContent: String? = null,
+            initialPayload: NotePayload? = null,
+            focusTitle: Boolean = false): NoteFragment {
 
             val fragment = NoteFragment()
 
@@ -1250,6 +1306,14 @@ class NoteFragment : CommonFragment(), View.OnClickListener, TimestampDialogFrag
 
             if (initialContent != null) {
                 args.putString(ARG_CONTENT, initialContent)
+            }
+
+            if (initialPayload != null) {
+                args.putParcelable(ARG_PAYLOAD, initialPayload)
+            }
+
+            if (focusTitle) {
+                args.putBoolean(ARG_FOCUS_TITLE, true)
             }
 
             fragment.arguments = args

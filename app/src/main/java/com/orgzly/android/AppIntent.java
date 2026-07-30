@@ -48,6 +48,7 @@ public class AppIntent {
     public static final String EXTRA_NOTE_ID = "com.orgzly.intent.extra.NOTE_ID";
     public static final String EXTRA_NOTE_CONTENT = "com.orgzly.intent.extra.NOTE_CONTENT";
     public static final String EXTRA_QUERY_STRING = "com.orgzly.intent.extra.QUERY_STRING";
+    public static final String EXTRA_IS_RAW_QUERY = "com.orgzly.intent.extra.IS_RAW_QUERY";
     public static final String EXTRA_SEARCH_NAME = "com.orgzly.intent.extra.SEARCH_NAME";
     public static final String EXTRA_PROPERTY_NAME  = "com.orgzly.intent.extra.PROPERTY_NAME";
     public static final String EXTRA_PROPERTY_VALUE  = "com.orgzly.intent.extra.PROPERTY_VALUE";
@@ -58,6 +59,7 @@ public class AppIntent {
     public static final String EXTRA_SNOOZE_TIMESTAMP = "com.orgzly.intent.extra.SNOOZE_TIMESTAMP";
     public static final String EXTRA_CLICK_TYPE = "com.orgzly.intent.extra.CLICK_TYPE";
     public static final String EXTRA_SAVED_SEARCH_ID = "com.orgzly.intent.extra.SAVED_SEARCH_ID";
+    public static final String EXTRA_CAPTURE_TEMPLATE_ID = "com.orgzly.intent.extra.CAPTURE_TEMPLATE_ID";
     public static final String EXTRA_IS_AUTOMATIC = "com.orgzly.intent.extra.IS_AUTOMATIC";
     public static final String EXTRA_REMINDER_EVENT = "com.orgzly.intent.extra.REMINDER_EVENT";
 }

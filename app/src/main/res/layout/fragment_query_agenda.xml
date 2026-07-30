@@ -23,7 +23,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_marginTop="?attr/actionBarSize"
-                android:paddingBottom="?attr/actionBarSize"
+                android:paddingBottom="@dimen/fragment_query_bottom_padding"
                 android:clipToPadding="false" />
 
         </ViewFlipper>
@@ -50,5 +50,12 @@
     <com.google.android.material.bottomappbar.BottomAppBar
         android:id="@+id/bottom_toolbar"
         style="@style/BottomToolbar" />
+
+    <!-- Capture template FAB -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/capture_fab"
+        style="@style/Fab.Capture"
+        android:contentDescription="@string/capture_template"
+        android:visibility="gone" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
